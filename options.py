@@ -153,42 +153,27 @@ class OptionParser(object):
     def define(self, name, default=None, type=None, help=None, metavar=None,
                multiple=False, group=None, callback=None):
         """定义命令行选项
-        如果`type``给定 (str, float, int, datetime, or timedelta)或’从default`推断,通过type来解析命令行参数. If ``multiple`` is True, we accept
-        comma-separated values, and the option value is always a list.
+        如果`type``给定 (str, float, int, datetime, or timedelta)或’从default`推断,通过type来解析命令行参数. 如果 ``multiple`` is True
+        接受逗号分隔(comma-separated values), option的值总是列表;对于多值整数，我们也接受`x:y`的语法转换成`range(x,y)`,十分有用的长整型ranges
 
-        For multi-value integers, we also accept the syntax ``x:y``, which
-        turns into ``range(x, y)`` - very useful for long integer ranges.
-
-        ``help`` and ``metavar`` are used to construct the
-        automatically generated command line help string. The help
-        message is formatted like::
+        ``help`` and ``metavar`` 被用于构造自动生成的命令行帮助字符串。帮助消息被格式化像::
 
            --name=METAVAR      help string
 
-        ``group`` is used to group the defined options in logical
-        groups. By default, command line options are grouped by the
-        file in which they are defined.
+        ``group`` 用于组的定义的选项中的逻辑组；默认情况下，命令行选项是由它们所定义的文件分组
 
-        Command line option names must be unique globally. They can be parsed
-        from the command line with `parse_command_line` or parsed from a
-        config file with `parse_config_file`.
-
-        If a ``callback`` is given, it will be run with the new value whenever
-        the option is changed.  This can be used to combine command-line
-        and file-based options::
+        `name`: 命令行选项的名字必须全局唯一. 他们被命令行`parse_command_line`解析或从配置文件`parse_config_file`解析
+        当`callback`给定，当选项改变时他将作为一个新值运行,这可以用来命令行结合
+        和基于文件的选项::
 
             define("config", type=str, help="path to config file",
                    callback=lambda path: parse_config_file(path, final=False))
-
-        With this definition, options in the file specified by ``--config`` will
-        override options set earlier on the command line, but can be overridden
-        by later flags.
         """
         if name in self._options:
-            raise Error("Option %r already defined in %s" %
-                        (name, self._options[name].file_name))
-        frame = sys._getframe(0)
-        options_file = frame.f_code.co_filename
+            raise Error("Option %r already defined in %s" % (name, self._options[name].file_name))
+
+        frame = sys._getframe(0)                        #关于sys._getframe参考这里：http://share.beginman.cn:8001/blog/index.php/archives/165/
+        options_file = frame.f_code.co_filename         # 返回当前文件名
         file_name = frame.f_back.f_code.co_filename
         if file_name == options_file:
             file_name = ""
@@ -268,7 +253,7 @@ class OptionParser(object):
             self.run_parse_callbacks()
 
     def print_help(self, file=None):
-        """Prints all the command line options to stderr (or another file)."""
+        """打印所有命令行选项标准错误（或其他文件）."""
         if file is None:
             file = sys.stderr
         print("Usage: %s [OPTIONS]" % sys.argv[0], file=file)
