@@ -143,8 +143,7 @@ class OptionParser(object):
             if not group or group == opt.group_name)
 
     def as_dict(self):
-        """The names and values of all options.
-
+        """所有的name:value选项
         .. versionadded:: 3.1
         """
         return dict(
