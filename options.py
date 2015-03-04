@@ -86,7 +86,7 @@ class OptionParser(object):
     """
     def __init__(self):
         # we have to use self.__dict__ because we override setattr.
-        self.__dict__['_options'] = {}
+        self.__dict__['_options'] = {}              # 全局options
         self.__dict__['_parse_callbacks'] = []
         self.define("help", type=bool, help="show this help information",
                     callback=self._help_callback)
@@ -185,6 +185,8 @@ class OptionParser(object):
             group_name = group
         else:
             group_name = file_name
+
+        #_Option实例
         self._options[name] = _Option(name, file_name=file_name,
                                       default=default, type=type, help=help,
                                       metavar=metavar, multiple=multiple,
@@ -195,17 +197,25 @@ class OptionParser(object):
         """Parses all options given on the command line (defaults to
         `sys.argv`).
 
-        Note that ``args[0]`` is ignored since it is the program name
-        in `sys.argv`.
+        `args[0]`被忽略,因为它是在`sys.argv`中程序的名字
+        返回未解析的选项所有参数列表
 
-        We return a list of all arguments that are not parsed as options.
+        args为定义的选项列表,第一个元素是空格，如 a.py --port=9000     由[' ', '--port=9000']组成
+        如测试：
+
+            define('port', default=8080, type=int, help='run this port', group='system')
+            define('mysql',default='127.0.0.1:3306', type=str, help='use this mysql', group='system')
+
+            print parse_command_line(['', '--port=9000'])        #返回 []
+            print parse_command_line(['', '--notDefined=1000'])        #输入的选项没有在define定义内则出错：无法识别的命令行选项
 
         If ``final`` is ``False``, parse callbacks will not be run.
         This is useful for applications that wish to combine configurations
         from multiple sources.
         """
         if args is None:
-            args = sys.argv
+            args = sys.argv     #返回文件名(全路径)
+
         remaining = []
         for i in range(1, len(args)):
             # All things after the last option are command line arguments
@@ -215,14 +225,14 @@ class OptionParser(object):
             if args[i] == "--":
                 remaining = args[i + 1:]
                 break
-            arg = args[i].lstrip("-")
-            name, equals, value = arg.partition("=")
+            arg = args[i].lstrip("-")       #去除左边的'-'
+            name, equals, value = arg.partition("=")        # 如--port=9000 ==> (port,=,9000)
             name = name.replace('-', '_')
             if not name in self._options:
                 self.print_help()
                 raise Error('Unrecognized command line option: %r' % name)
             option = self._options[name]
-            if not equals:
+            if not equals:              #如果命令参数中没有'='
                 if option.type == bool:
                     value = "true"
                 else:
@@ -477,8 +487,7 @@ All defined options are available as attributes on this object.
 
 def define(name, default=None, type=None, help=None, metavar=None,
            multiple=False, group=None, callback=None):
-    """Defines an option in the global namespace.
-
+    """在全局空间中定义选项
     See `OptionParser.define`.
     """
     return options.define(name, default=default, type=type, help=help,
