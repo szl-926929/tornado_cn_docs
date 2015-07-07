@@ -1,3 +1,4 @@
+# coding=utf-8
 """Miscellaneous utility functions and classes.
 
 This module is used internally by Tornado.  It is not necessarily expected
@@ -18,7 +19,7 @@ import os
 import sys
 import zlib
 
-
+# ++++++ py2-py3 xrange语法差异
 try:
     xrange  # py2
 except NameError:
@@ -27,6 +28,10 @@ except NameError:
 
 class ObjectDict(dict):
     """Makes a dictionary behave like an object, with attribute-style access.
+    +++++ 使字典具有对象行为
+    >>> dic = {'name': 'beginman', 'age': 24}
+    >>> obj = ObjectDict(dic)
+    >>> print obj, obj.name, obj.age
     """
     def __getattr__(self, name):
         try:
@@ -43,6 +48,7 @@ class GzipDecompressor(object):
 
     The interface is like that of `zlib.decompressobj` (without some of the
     optional arguments, but it understands gzip headers and checksums.
+    +++++ 
     """
     def __init__(self):
         # Magic parameter makes zlib module understand gzip header
@@ -80,7 +86,7 @@ class GzipDecompressor(object):
 
 def import_object(name):
     """Imports an object by name.
-
+    +++++ 这样处理的好处？？
     import_object('x') is equivalent to 'import x'.
     import_object('x.y.z') is equivalent to 'from x.y import z'.
 

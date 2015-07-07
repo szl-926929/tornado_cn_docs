@@ -1,3 +1,4 @@
+#coding=utf-8
 #!/usr/bin/env python
 #
 # Copyright 2009 Facebook
@@ -16,14 +17,19 @@
 
 """An I/O event loop for non-blocking sockets.
 
+Torando 在Linux和FreeBSD上使用高效的异步I/O模型 epoll 和kqueue来实现高效的web服务器,
+
+
 Typical applications will use a single `IOLoop` object, in the
-`IOLoop.instance` singleton.  The `IOLoop.start` method should usually
-be called at the end of the ``main()`` function.  Atypical applications may
-use more than one `IOLoop`, such as one `IOLoop` per thread, or per `unittest`
+`IOLoop.instance` singleton(单例).  The `IOLoop.start` method should usually
+be called at the end of the ``main()`` function.
+
+Atypical(非典型) applications may
+use more than one `IOLoop`, such as one `IOLoop` per thread, or per `unittest(单元测试)`
 case.
 
-In addition to I/O events, the `IOLoop` can also schedule time-based events.
-`IOLoop.add_timeout` is a non-blocking alternative to `time.sleep`.
+In addition to(除了) I/O events, the `IOLoop` can also schedule time-based events(基于事件的事件).
+`IOLoop.add_timeout` is a non-blocking alternative(替代) to `time.sleep`.
 """
 
 from __future__ import absolute_import, division, print_function, with_statement
@@ -71,12 +77,9 @@ class IOLoop(Configurable):
     """A level-triggered I/O loop.
 
     We use ``epoll`` (Linux) or ``kqueue`` (BSD and Mac OS X) if they
-    are available, or else we fall back on select(). If you are
-    implementing a system that needs to handle thousands of
-    simultaneous connections, you should use a system that supports
-    either ``epoll`` or ``kqueue``.
-
-    Example usage for a simple TCP server::
+    are available, or else we fall back on select().
+    高并发时你应该使用`epoll` or `kqueue`
+    例如使用一个简单的TCP服务器::
 
         import errno
         import functools
@@ -101,12 +104,18 @@ class IOLoop(Configurable):
         sock.listen(128)
 
         io_loop = ioloop.IOLoop.instance()
+
+        # 用一些默认参数包装一个可调用对象,返回结果是可调用对象，并且可以像原始对象一样对待，
+        # 冻结 connection_ready 的第一个参数为 sock ,既 socket 的返回值
         callback = functools.partial(connection_ready, sock)
+
+        # 注册函数，  第一个参数是将 sock 转换为标准的描述符，第二个为回调函数，第三个是事件类型       
         io_loop.add_handler(sock.fileno(), callback, io_loop.READ)
+
         io_loop.start()
 
     """
-    # Constants from the epoll module
+    # 从epoll的模块常量
     _EPOLLIN = 0x001
     _EPOLLPRI = 0x002
     _EPOLLOUT = 0x004
@@ -116,24 +125,30 @@ class IOLoop(Configurable):
     _EPOLLONESHOT = (1 << 30)
     _EPOLLET = (1 << 31)
 
-    # Our events map exactly to the epoll events
+    # 我们的活动正好映射到epoll的事件
     NONE = 0
     READ = _EPOLLIN
     WRITE = _EPOLLOUT
     ERROR = _EPOLLERR | _EPOLLHUP
 
-    # Global lock for creating global IOLoop instance
+    # 创建IOLoop实例全局锁
     _instance_lock = threading.Lock()
 
     _current = threading.local()
 
     @staticmethod
     def instance():
-        """Returns a global `IOLoop` instance.
+        """返回一个全局`IOLoop`实例.
 
-        Most applications have a single, global `IOLoop` running on the
-        main thread.  Use this method to get this instance from
-        another thread.  To get the current thread's `IOLoop`, use `current()`.
+        大多数应用程序都是单一的，全局`IOLoop`运行在(main thread)主线程上。
+        使用该方法从另一个线程中获取这个实例
+        获取当前线程的`IOLoop`, 用 `current()`方法
+
+        单例模式：一个进程只有一个
+
+        [注解]: 在Mac上运行 `tornado.ioloop.IOLoop.current()`
+         则输出 <tornado.platform.kqueue.KQueueIOLoop object at 0x103aeca50>
+
         """
         if not hasattr(IOLoop, "_instance"):
             with IOLoop._instance_lock:
@@ -144,22 +159,21 @@ class IOLoop(Configurable):
 
     @staticmethod
     def initialized():
-        """Returns true if the singleton instance has been created."""
+        """如果单例已创建返回true"""
         return hasattr(IOLoop, "_instance")
 
     def install(self):
-        """Installs this `IOLoop` object as the singleton instance.
+        """安装此`IOLoop`对象作为一个单例。
 
-        This is normally not necessary as `instance()` will create
-        an `IOLoop` on demand, but you may want to call `install` to use
-        a custom subclass of `IOLoop`.
+        这通常是没有必要的，因为`instance()` 将创建一个`IOLoop`需求
+        但是你可能想调用`install` 去使用一个自定义的`IOLoop`子类
         """
         assert not IOLoop.initialized()
         IOLoop._instance = self
 
     @staticmethod
     def clear_instance():
-        """Clear the global `IOLoop` instance.
+        """清除全局`IOLoop` instance.
 
         .. versionadded:: 4.0
         """
@@ -227,44 +241,45 @@ class IOLoop(Configurable):
         pass
 
     def close(self, all_fds=False):
-        """Closes the `IOLoop`, freeing any resources used.
+        """Closes the `IOLoop`, 释放所使用的任何资源.
 
-        If ``all_fds`` is true, all file descriptors registered on the
-        IOLoop will be closed (not just the ones created by the
-        `IOLoop` itself).
-
-        Many applications will only use a single `IOLoop` that runs for the
-        entire lifetime of the process.  In that case closing the `IOLoop`
-        is not necessary since everything will be cleaned up when the
-        process exits.  `IOLoop.close` is provided mainly for scenarios
-        such as unit tests, which create and destroy a large number of
+        If ``all_fds`` is true, 注册在该`IOLoop`的所有文件描述符将被关闭(不只是IOLoop本身所创建的)
+        许多应用程序将只使用一个单一的'IOLoop`运行该方法的整个生命周期
+        在这种情况下关闭`IOLoop`是没有必要的，因为一旦进程退出，一切将被清理.
+        `IOLoop.close` 主要提供如下方案：
+            unit tests(单元测试), which create and destroy a large number of
         ``IOLoops``.
 
-        An `IOLoop` must be completely stopped before it can be closed.  This
-        means that `IOLoop.stop()` must be called *and* `IOLoop.start()` must
-        be allowed to return before attempting to call `IOLoop.close()`.
-        Therefore the call to `close` will usually appear just after
-        the call to `start` rather than near the call to `stop`.
+        一个`IOLoop`在它被关闭前必须完全停止，这意味着`IOLoop.stop()`必须调用，
+        `IOLoop.start()`必须在调用`IOLoop.close()`前有返回。
 
         .. versionchanged:: 3.1
-           If the `IOLoop` implementation supports non-integer objects
+           If the `IOLoop` implementation(实现) supports non-integer objects
            for "file descriptors", those objects will have their
            ``close`` method when ``all_fds`` is true.
         """
         raise NotImplementedError()
 
     def add_handler(self, fd, handler, events):
-        """Registers the given handler to receive the given events for ``fd``.
+        """
+        [比较重要:将文件描述符发生相应的事件时的回调函数对应]
+        add_handler用于添加socket到主循环中, 
+        接受三个参数: 
+            fd 是socket的文件描述符 
+            handler 是处理此socket的callback函数 
+            events 是此socket注册的事件
+
+        Registers the given handler to receive the given events for ``fd``.
 
         The ``fd`` argument may either be an integer file descriptor or
         a file-like object with a ``fileno()`` method (and optionally a
         ``close()`` method, which may be called when the `IOLoop` is shut
         down).
 
-        The ``events`` argument is a bitwise or of the constants
-        ``IOLoop.READ``, ``IOLoop.WRITE``, and ``IOLoop.ERROR``.
+        The ``events`` argument is a bitwise(按位) 或者
+        ``IOLoop.READ``, ``IOLoop.WRITE``, and ``IOLoop.ERROR``的常量.
 
-        When an event occurs, ``handler(fd, events)`` will be run.
+        当一个事件发生, ``handler(fd, events)`` will be run.
 
         .. versionchanged:: 4.0
            Added the ability to pass file-like objects in addition to
@@ -291,30 +306,25 @@ class IOLoop(Configurable):
         raise NotImplementedError()
 
     def set_blocking_signal_threshold(self, seconds, action):
-        """Sends a signal if the `IOLoop` is blocked for more than
-        ``s`` seconds.
+        """发送一个信号如果`IOLoop`被阻塞超过``s`` seconds.
 
         Pass ``seconds=None`` to disable.  Requires Python 2.6 on a unixy
         platform.
 
-        The action parameter is a Python signal handler.  Read the
-        documentation for the `signal` module for more information.
-        If ``action`` is None, the process will be killed if it is
-        blocked for too long.
+        action: 是一个 Python signal handler.
+        `action`为 None, 被阻塞太久的进程将会被干掉
         """
         raise NotImplementedError()
 
     def set_blocking_log_threshold(self, seconds):
-        """Logs a stack trace if the `IOLoop` is blocked for more than
-        ``s`` seconds.
+        """记录一个堆栈跟踪(stack trace)，如果`IOLoop`被阻塞超过``s``秒。
 
-        Equivalent to ``set_blocking_signal_threshold(seconds,
-        self.log_stack)``
+        相当于 ``set_blocking_signal_threshold(seconds, self.log_stack)``
         """
         self.set_blocking_signal_threshold(seconds, self.log_stack)
 
     def log_stack(self, signal, frame):
-        """Signal handler to log the stack trace of the current thread.
+        """信号处理程序来记录当前线程的堆栈跟踪。
 
         For use with `set_blocking_signal_threshold`.
         """
@@ -349,9 +359,6 @@ class IOLoop(Configurable):
     def stop(self):
         """Stop the I/O loop.
 
-        If the event loop is not currently running, the next call to `start()`
-        will return immediately.
-
         To use asynchronous methods from otherwise-synchronous code (such as
         unit tests), you can start and stop the event loop like this::
 
@@ -374,15 +381,15 @@ class IOLoop(Configurable):
         """Starts the `IOLoop`, runs the given function, and stops the loop.
 
         If the function returns a `.Future`, the `IOLoop` will run
-        until the future is resolved.  If it raises an exception, the
+        until the future is resolved(解析).  If it raises an exception, the
         `IOLoop` will stop and the exception will be re-raised to the
         caller.
 
         The keyword-only argument ``timeout`` may be used to set
-        a maximum duration for the function.  If the timeout expires,
+        a maximum(最大) duration(长短) for the function.  If the timeout expires,
         a `TimeoutError` is raised.
 
-        This method is useful in conjunction with `tornado.gen.coroutine`
+        This method is useful in conjunction(关联) with `tornado.gen.coroutine`
         to allow asynchronous calls in a ``main()`` function::
 
             @gen.coroutine
@@ -396,32 +403,39 @@ class IOLoop(Configurable):
 
         def run():
             try:
-                result = func()
+                result = func()             # 无参
             except Exception:
                 future_cell[0] = TracebackFuture()
                 future_cell[0].set_exc_info(sys.exc_info())
-            else:
-                if is_future(result):
+            else:       # if no exception,get here(try-except-else-finally写法)
+                if is_future(result):       # 判断函数返回值是否是`Future`对象
                     future_cell[0] = result
                 else:
                     future_cell[0] = TracebackFuture()
                     future_cell[0].set_result(result)
+            # 将`Future`对象和IOLoop的`stop()`作为参数传入`add_future()`函数中
             self.add_future(future_cell[0], lambda future: self.stop())
-        self.add_callback(run)
-        if timeout is not None:
+
+
+        self.add_callback(run)      # 回调函数
+        if timeout is not None:     # 超时设置,`stop()`
             timeout_handle = self.add_timeout(self.time() + timeout, self.stop)
+
+        # 开始ioloop
         self.start()
+
         if timeout is not None:
             self.remove_timeout(timeout_handle)
-        if not future_cell[0].done():
+
+        if not future_cell[0].done():       # `done()`方法
             raise TimeoutError('Operation timed out after %s seconds' % timeout)
-        return future_cell[0].result()
+        return future_cell[0].result()      # 返回`result()`
 
     def time(self):
-        """Returns the current time according to the `IOLoop`'s clock.
+        """根据`IOLoop`的时钟返回当前时间。
 
-        The return value is a floating-point number relative to an
-        unspecified time in the past.
+        The return value is a floating-point number(浮点数) relative to(相对于) an
+        unspecified(不确定的) time in the past.
 
         By default, the `IOLoop`'s time function is `time.time`.  However,
         it may be configured to use e.g. `time.monotonic` instead.
@@ -435,25 +449,25 @@ class IOLoop(Configurable):
     def add_timeout(self, deadline, callback, *args, **kwargs):
         """Runs the ``callback`` at the time ``deadline`` from the I/O loop.
 
-        Returns an opaque handle that may be passed to
-        `remove_timeout` to cancel.
+        Returns an opaque(不透明的) handle 可能被传递到`remove_timeout`取消。
 
-        ``deadline`` may be a number denoting a time (on the same
-        scale as `IOLoop.time`, normally `time.time`), or a
-        `datetime.timedelta` object for a deadline relative to the
-        current time.  Since Tornado 4.0, `call_later` is a more
-        convenient alternative for the relative case since it does not
-        require a timedelta object.
+        ``deadline``(最后期限) may be a number denoting(表示) a time (在同等规模的`IOLoop.time`，通常`time.time`),
+        或者是相对于当前时间的`datetime.timedelta`对象期限.
 
-        Note that it is not safe to call `add_timeout` from other threads.
-        Instead, you must use `add_callback` to transfer control to the
-        `IOLoop`'s thread, and then call `add_timeout` from there.
+        Since Tornado 4.0, `call_later`是因为它不要求一个timedelta对象的相对情况下，作为更方便的选择。
 
-        Subclasses of IOLoop must implement either `add_timeout` or
-        `call_at`; the default implementations of each will call
-        the other.  `call_at` is usually easier to implement, but
-        subclasses that wish to maintain compatibility with Tornado
-        versions prior to 4.0 must use `add_timeout` instead.
+        Note that it is not safe to call `add_timeout` from other threads.(其他线程调用`add_timeout`的不安全性)
+        
+        相反，你必须使用`add_callback`来控制转移到`IOLoop`的线程，然后从那里调用`add_timeout`。
+
+        `IOLoop`子类实现规则：
+
+            必须包含 `add_timeout` or `call_at`; the default implementations of each will call
+        the other.  
+
+        `call_at` is usually easier to implement, but
+        subclasses that wish to maintain(维持) compatibility(兼容性) with Tornado
+        versions prior to(之前) 4.0 must use `add_timeout` instead.
 
         .. versionchanged:: 4.0
            Now passes through ``*args`` and ``**kwargs`` to the callback.
@@ -467,7 +481,10 @@ class IOLoop(Configurable):
             raise TypeError("Unsupported deadline %r" % deadline)
 
     def call_later(self, delay, callback, *args, **kwargs):
-        """Runs the ``callback`` after ``delay`` seconds have passed.
+        """
+        有点像定时计划, 这个函数同`add_timeout`
+        delay: N 秒后,
+        Runs the ``callback`` after ``delay`` seconds have passed.
 
         Returns an opaque handle that may be passed to `remove_timeout`
         to cancel.  Note that unlike the `asyncio` method of the same
@@ -480,7 +497,10 @@ class IOLoop(Configurable):
         return self.call_at(self.time() + delay, callback, *args, **kwargs)
 
     def call_at(self, when, callback, *args, **kwargs):
-        """Runs the ``callback`` at the absolute time designated by ``when``.
+        """
+        运行``callback``在由``when``指定的绝对时间。
+
+        Runs the ``callback`` at the absolute time designated by ``when``.
 
         ``when`` must be a number using the same reference point as
         `IOLoop.time`.
@@ -677,10 +697,19 @@ class PollIOLoop(IOLoop):
         self._impl.register(fd, events | self.ERROR)
 
     def update_handler(self, fd, events):
+        """
+        update_handler用于更新主循环中已存在的socket响应事件, 
+        接受两个参数: 
+            fd 是socket对应的文件描述符 
+            events 是注册的新事件
+        """
         fd, obj = self.split_fd(fd)
         self._impl.modify(fd, events | self.ERROR)
 
     def remove_handler(self, fd):
+        """
+        移除主循环中已存在的socket
+        """
         fd, obj = self.split_fd(fd)
         self._handlers.pop(fd, None)
         self._events.pop(fd, None)

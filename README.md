@@ -13,5 +13,4 @@ tornado源码分析,版本4.0
 # 进度
 1.options模块(70%)
 
-博文总结:[tornado源码分析(1).option模块](http://share.beginman.cn:8001/blog/index.php/archives/166/)
 
