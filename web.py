@@ -142,11 +142,13 @@ May be overrided by passing a ``min_version`` keyword argument.
 
 class RequestHandler(object):
     """Subclass this class and define `get()` or `post()` to make a handler.
+    子类化并定义`get()`,`post()`etc.成为自己的http处理handler
 
     If you want to support more methods than the standard GET/HEAD/POST, you
     should override the class variable ``SUPPORTED_METHODS`` in your
     `RequestHandler` subclass.
     """
+    # 支持的http方法, 如果要支持更多可重写该变量
     SUPPORTED_METHODS = ("GET", "HEAD", "POST", "DELETE", "PATCH", "PUT",
                          "OPTIONS")
 
